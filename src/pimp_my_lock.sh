@@ -9,18 +9,28 @@ _main()
 	_parse_parameters "$@"
 
 	ft_lock
-	_wait_for_ft_lock
-	read -d "\n" window_id pid <<< $(_start_media "$MEDIA" "$POS_X" "$POS_Y" "$W_WIDTH" "$W_HEIGHT")
-	_bring_window_to_top "$window_id"
-	_resize_window "$window_id" "$W_WIDTH" "$W_HEIGHT"
-	_move_window "$window_id" "$POS_X" "$POS_Y"
-	_wait_for_ft_lock_end
-	kill $pid
+	if [ $? -eq 127 ]; then
+		dm-tool lock
+		_wait_for_dm_lock
+		read -d "\n" window_id pid <<< $(_start_media "$MEDIA" "$POS_X" "$POS_Y" "$W_WIDTH" "$W_HEIGHT")
+		_bring_window_to_top "$window_id"
+		_resize_window "$window_id" "$W_WIDTH" "$W_HEIGHT"
+		_move_window "$window_id" "$POS_X" "$POS_Y"
+		_wait_for_dm_lock_end
+	else
+		_wait_for_ft_lock
+		read -d "\n" window_id pid <<< $(_start_media "$MEDIA" "$POS_X" "$POS_Y" "$W_WIDTH" "$W_HEIGHT")
+		_bring_window_to_top "$window_id"
+		_resize_window "$window_id" "$W_WIDTH" "$W_HEIGHT"
+		_move_window "$window_id" "$POS_X" "$POS_Y"
+		_wait_for_ft_lock_end
+		kill $pid
+	fi
 }
 
 _check_dependencies()
 {
-	local dependencies=(ft_lock head column sed cat mediainfo tail pqiv mpv xwininfo grep awk wmctrl xdotool)
+	local dependencies=(head column sed cat mediainfo tail pqiv mpv xwininfo grep awk wmctrl xdotool)
 	for dependency in ${dependencies[@]}; do
 		command -v $dependency > /dev/null 2>&1
 		if [[ $? -ne 0 ]]; then
@@ -303,6 +313,14 @@ _wait_for_ft_lock()
 	done
 }
 
+_wait_for_dm_lock()
+{
+	# TODO Check if it is the right process and not an other window named ft_lock
+	until (ps -aux | grep --invert-match "grep" | grep "/opt/nody-greeter/nody-greeter" > /dev/null) ; do
+		true
+	done
+}
+
 # Args: <window_id>
 _bring_window_to_top()
 {
@@ -348,6 +366,18 @@ _wait_for_ft_lock_end()
 {
 	LAST_SECOND=$SECONDS
 	while (xwininfo -name ft_lock > /dev/null 2>&1) ; do
+		if [[ $LAST_SECOND -ne $SECONDS ]]; then
+			xdotool click 1
+			LAST_SECOND=$SECONDS
+		fi
+		sleep .1
+	done
+}
+
+_wait_for_dm_lock_end()
+{
+	LAST_SECOND=$SECONDS
+	while (ps -aux | grep --invert-match "grep" | grep "/opt/nody-greeter/nody-greeter" > /dev/null) ; do
 		if [[ $LAST_SECOND -ne $SECONDS ]]; then
 			xdotool click 1
 			LAST_SECOND=$SECONDS
