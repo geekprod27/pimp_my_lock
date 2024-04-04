@@ -8,15 +8,18 @@ _main()
 	_check_dependencies
 	_parse_parameters "$@"
 
-	ft_lock
+	ft_lock 2>/dev/null
 	if [ $? -eq 127 ]; then
-		dm-tool lock
-		_wait_for_dm_lock
 		read -d "\n" window_id pid <<< $(_start_media "$MEDIA" "$POS_X" "$POS_Y" "$W_WIDTH" "$W_HEIGHT")
-		_bring_window_to_top "$window_id"
 		_resize_window "$window_id" "$W_WIDTH" "$W_HEIGHT"
 		_move_window "$window_id" "$POS_X" "$POS_Y"
+		sleep 2
+		dm-tool lock
+		_wait_for_dm_lock
+		sleep 5
+		_bring_window_to_top "$window_id"
 		_wait_for_dm_lock_end
+		kill $pid
 	else
 		_wait_for_ft_lock
 		read -d "\n" window_id pid <<< $(_start_media "$MEDIA" "$POS_X" "$POS_Y" "$W_WIDTH" "$W_HEIGHT")
